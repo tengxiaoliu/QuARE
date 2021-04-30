@@ -123,6 +123,14 @@ class QAre(nn.Module):
         # relation encoder?
         encoded_text = encoded_text + sub
         # [batch_size, seq_len, rel_num]
+
+        # create embeddings for ctx_qst, given subject and relation
+        encoded_ctx_qst
+
+        # encoded_text should be concatenation of context and question
+        qa_outputs = self.qa_linear(encoded_ctx_qst)
+
+
         pred_obj_heads = self.obj_heads_linear(encoded_text)
         pred_obj_heads = torch.sigmoid(pred_obj_heads)
         # [batch_size, seq_len, rel_num]

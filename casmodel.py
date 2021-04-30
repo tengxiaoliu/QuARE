@@ -34,6 +34,9 @@ class Casrel(nn.Module):
         # TODO: change encoded_text content to context+question
         encoded_text = encoded_text + sub
         # [batch_size, seq_len, rel_num]
+
+        # encoded_text should be concatenation of context and question
+
         pred_obj_heads = self.obj_heads_linear(encoded_text)
         pred_obj_heads = torch.sigmoid(pred_obj_heads)
         # [batch_size, seq_len, rel_num]

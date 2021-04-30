@@ -8,4 +8,3 @@ def build_question(sub_text, rel_text, special_tag=False):
         s = "Find the object that has relation " + rel_text + " with subject " + sub_text
     return s
 
-def
