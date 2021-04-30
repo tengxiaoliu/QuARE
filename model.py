@@ -8,7 +8,7 @@ class QAre(nn.Module):
         super(QAre, self).__init__()
         self.config = config
         self.bert_dim = 768
-        self.bert_encoder = BertModel.from_pretrained(self.config.bert_dir)
+        self.bert = BertModel.from_pretrained(self.config.bert_dir)
         self.num_labels = config.num_labels
 
         # Subject tagger
@@ -18,7 +18,7 @@ class QAre(nn.Module):
         # Object and relation QA module
         # todo: design QA module from huggingface
 
-        self.tag_linear = nn.Linear(self.bert_encoder.config.hidden_size, self.num_labels)
+        self.qa_linear = nn.Linear(self.bert_dim, self.num_labels)
         self.dropout = nn.Dropout(config.dropout_prob)
         self.loss_func = nn.CrossEntropyLoss()
         self.theta = config.theta
@@ -37,14 +37,69 @@ class QAre(nn.Module):
         pred_sub_tails = torch.sigmoid(pred_sub_tails)
         return pred_sub_heads, pred_sub_tails
 
-    def get_objs_given_sub(self, sub):
+    def get_objs_given_sub(self,
+                           input_ids=None,
+                           attention_mask=None,
+                           token_type_ids=None,
+                           position_ids=None,
+                           head_mask=None,
+                           inputs_embeds=None,
+                           start_positions=None,
+                           end_positions=None,
+                           output_attentions=None,
+                           output_hidden_states=None,
+                           ):
         """
         Given tagged subject, form a question, and get answer span.
         todo: QA style to get answer span
-        :param sub:
-        :return: predicted object head, predicted object tail
+        After tokenizer：input_ids，token_type_ids，attention_mask
+        :param input_ids: from tokenizer
+        :param attention_mask: whether apply attention
+        :param token_type_ids: question 0, context 1
+        :param position_ids:
+        :param head_mask:
+        :param inputs_embeds:
+        :param start_positions: torch.tensor([start_tag])
+        :param end_positions: torch.tensor([end_tag])
+        :param output_attentions:
+        :param output_hidden_states:
+        :return: object prediction loss
         """
 
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+        )
+
+        sequence_output = outputs[0]
+
+        logits = self.qa_linear(sequence_output)
+        start_logits, end_logits = logits.split(1, dim=-1)
+        start_logits = start_logits.squeeze(-1)
+        end_logits = end_logits.squeeze(-1)
+
+        total_loss = None
+        if start_positions is not None and end_positions is not None:
+            # If we are on multi-GPU, split add a dimension
+            if len(start_positions.size()) > 1:
+                start_positions = start_positions.squeeze(-1)
+            if len(end_positions.size()) > 1:
+                end_positions = end_positions.squeeze(-1)
+            # sometimes the start/end positions are outside our model inputs, we ignore these terms
+            ignored_index = start_logits.size(1)
+            start_positions.clamp_(0, ignored_index)
+            end_positions.clamp_(0, ignored_index)
+
+            loss_fct = self.loss_func(ignore_index=ignored_index)
+            start_loss = loss_fct(start_logits, start_positions)
+            end_loss = loss_fct(end_logits, end_positions)
+            total_loss = (start_loss + end_loss) / 2
 
 
 
@@ -78,7 +133,7 @@ class QAre(nn.Module):
     def get_encoded_text(self, token_ids, mask):
         # [batch_size, seq_len, bert_dim(768)]
         # print("Inside get_encoded_text")
-        encoded_text = self.bert_encoder(token_ids, attention_mask=mask)[0]
+        encoded_text = self.bert(token_ids, attention_mask=mask)[0]
         return encoded_text
 
     def forward(self, data):
