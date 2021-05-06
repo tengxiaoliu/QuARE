@@ -101,9 +101,7 @@ class QAre(nn.Module):
             end_loss = loss_fct(end_logits, end_positions)
             total_loss = (start_loss + end_loss) / 2
 
-
-
-    def get_objs_for_specific_sub(self, sub_head_mapping, sub_tail_mapping, encoded_text):
+    def get_objs_for_specific_sub(self, qa_encoded_text):
         """
         Relation-specific Object Taggers
         :param sub_head_mapping: [0,0,0,1,0,0,0]?
@@ -111,32 +109,22 @@ class QAre(nn.Module):
         :param encoded_text: input sentence pretrained with BERT
         :return: predicted object head, predicted object tail
         """
-        # [batch_size, 1, bert_dim]
-        sub_head = torch.matmul(sub_head_mapping, encoded_text)
-        # [batch_size, 1, bert_dim]
-        sub_tail = torch.matmul(sub_tail_mapping, encoded_text)
-        # [batch_size, 1, bert_dim]
-        sub = (sub_head + sub_tail) / 2
-        # [batch_size, seq_len, bert_dim]
-
-        # TODO: also add relation information into encoded text, will it help?
-        # relation encoder?
-        encoded_text = encoded_text + sub
-        # [batch_size, seq_len, rel_num]
+        # # [batch_size, 1, bert_dim]
+        # sub_head = torch.matmul(sub_head_mapping, encoded_text)
+        # # [batch_size, 1, bert_dim]
+        # sub_tail = torch.matmul(sub_tail_mapping, encoded_text)
+        # # [batch_size, 1, bert_dim]
+        # sub = (sub_head + sub_tail) / 2
+        # # [batch_size, seq_len, bert_dim]
 
         # create embeddings for ctx_qst, given subject and relation
-        encoded_ctx_qst
 
         # encoded_text should be concatenation of context and question
-        qa_outputs = self.qa_linear(encoded_ctx_qst)
-
-
-        pred_obj_heads = self.obj_heads_linear(encoded_text)
-        pred_obj_heads = torch.sigmoid(pred_obj_heads)
-        # [batch_size, seq_len, rel_num]
-        pred_obj_tails = self.obj_tails_linear(encoded_text)
-        pred_obj_tails = torch.sigmoid(pred_obj_tails)
-        return pred_obj_heads, pred_obj_tails
+        qa_outputs = self.qa_linear(qa_encoded_text)
+        # [batch_size, seq_len, label_num]
+        qa_outputs = torch.sigmoid(qa_outputs)
+        # todo: extract pred_obj_heads, pred_obj_tails from qa_outputs
+        return qa_outputs
 
     def get_encoded_text(self, token_ids, mask):
         # [batch_size, seq_len, bert_dim(768)]
@@ -160,14 +148,18 @@ class QAre(nn.Module):
 
         # get question using sub_head, sub_tail
 
-
-        #concatenate ori_sent embedding and formed question embedding?
-        # return the index of object span from ori_sent
-
+        # [batch_size, seq_len]
+        qa_token_ids = data['qa_token_ids']
+        # [batch_size, seq_len]
+        qa_mask = data['qa_mask']
+        # [batch_size, seq_len, bert_dim(768)]
+        qa_encoded_text = self.get_encoded_text(qa_token_ids, qa_mask)
+        # [batch_size, seq_len, rel_num]
+        qa_outputs = self.get_objs_for_specific_sub(qa_encoded_text)
 
         # [batch_size, seq_len, rel_num]
-        pred_obj_heads, pred_obj_tails = self.get_objs_for_specific_sub(sub_head_mapping, sub_tail_mapping, encoded_text)
-        return pred_sub_heads, pred_sub_tails, pred_obj_heads, pred_obj_tails
+        # pred_obj_heads, pred_obj_tails = self.get_objs_for_specific_sub(encoded_text)
+        return pred_sub_heads, pred_sub_tails, qa_outputs
 
     def get_question(self, sub_head, sub_tail):
         """

@@ -62,6 +62,7 @@ class Framework(object):
         model.train()
         global_step = 0
         loss_sum = 0
+        theta = self.config.theta
 
         best_f1_score = 0
         best_precision = 0
@@ -76,13 +77,14 @@ class Framework(object):
             train_data_prefetcher = data_loader.DataPreFetcher(train_data_loader)
             data = train_data_prefetcher.next()
             while data is not None:
-                pred_sub_heads, pred_sub_tails, pred_obj_heads, pred_obj_tails = model(data)
+                pred_sub_heads, pred_sub_tails, qa_outputs = model(data)
 
                 sub_heads_loss = loss(data['sub_heads'], pred_sub_heads, data['mask'])
                 sub_tails_loss = loss(data['sub_tails'], pred_sub_tails, data['mask'])
-                obj_heads_loss = loss(data['obj_heads'], pred_obj_heads, data['mask'])
-                obj_tails_loss = loss(data['obj_tails'], pred_obj_tails, data['mask'])
-                total_loss = (sub_heads_loss + sub_tails_loss) + (obj_heads_loss + obj_tails_loss)
+
+                qa_outputs_loss = loss(data['obj_qa_tags'], qa_outputs, data['qa_mask'])
+
+                total_loss = theta * (sub_heads_loss + sub_tails_loss) + (1 - theta) * qa_outputs_loss
 
                 optimizer.zero_grad()
                 total_loss.backward()
@@ -131,6 +133,7 @@ class Framework(object):
                      format(best_epoch, best_f1_score, best_precision, best_recall, time.time() - init_time))
 
     def test(self, test_data_loader, model, output=False, h_bar=0.5, t_bar=0.5):
+        # todo: design test
 
         if output:
             # check the result dir
