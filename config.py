@@ -8,6 +8,7 @@ class Config(object):
         self.batch_size = args.batch_size
         self.max_epoch = args.max_epoch
         self.max_len = args.max_len
+        self.max_qa_len = args.max_qa_len
         self.rel_num = args.rel_num
 
         # dataset
