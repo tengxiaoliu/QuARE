@@ -4,11 +4,15 @@ from torch import nn
 import os
 import data_loader
 import torch.nn.functional as F
+from utils import get_tokenizer
+from data_loader import get_context_question
 
 import numpy as np
 import json
 import time
 
+REL_NUM = 24
+tokenizer = get_tokenizer('/home/ubuntu/pycharm_proj/pretrained_models/bert/bert-base-cased-vocab.txt')
 
 class Framework(object):
     def __init__(self, con):
@@ -166,6 +170,7 @@ class Framework(object):
                 # Debug
                 # print("-------------doing test------------")
                 # print(type(model))
+                # get subjects
                 if hasattr(model, 'module'):
                     encoded_text = model.module.get_encoded_text(token_ids, mask)
                     pred_sub_heads, pred_sub_tails = model.module.get_subs(encoded_text)
@@ -174,7 +179,8 @@ class Framework(object):
                     pred_sub_heads, pred_sub_tails = model.get_subs(encoded_text)
 
                 # select idx that pred > bar
-                sub_heads, sub_tails = np.where(pred_sub_heads.cpu()[0] > h_bar)[0], np.where(pred_sub_tails.cpu()[0] > t_bar)[0]
+                sub_heads, sub_tails = np.where(pred_sub_heads.cpu()[0] > h_bar)[0], \
+                                       np.where(pred_sub_tails.cpu()[0] > t_bar)[0]
                 subjects = []
                 for sub_head in sub_heads:
                     sub_tail = sub_tails[sub_tails >= sub_head]
@@ -183,6 +189,33 @@ class Framework(object):
                         subject = tokens[sub_head: sub_tail]
                         subjects.append((subject, sub_head, sub_tail))
                 if subjects:
+                    # get subjects text
+                    sub_list = []
+                    for subject_idx, subject in enumerate(subjects):
+                        sub = subject[0]
+                        sub = ''.join([i.lstrip("##") for i in sub])
+                        sub = ' '.join(sub.split('[unused1]'))
+                        sub_list.append(sub)
+                    for sub_text in sub_list:
+                        for i in range(REL_NUM):
+                            rel_text = id2rel[i]
+                            qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
+                                get_context_question(tokens, sub_text, rel_text, self.config)
+                            if hasattr(model, 'module'):
+                                qa_encoded_text = model.module.get_encoded_text(qa_token_ids, qa_masks)
+                                # [batch_size, seq_len, rel_num]
+                                qa_outputs = model.module.get_objs_for_specific_sub(qa_encoded_text)
+                            else:
+                                qa_encoded_text = model.get_encoded_text(qa_token_ids, qa_masks)
+                                # [batch_size, seq_len, rel_num]
+                                qa_outputs = model.get_objs_for_specific_sub(qa_encoded_text)
+                            # todo: get obj from qa_outputs
+
+
+
+
+
+
                     triple_list = []
                     # [subject_num, seq_len, bert_dim]
                     repeated_encoded_text = encoded_text.repeat(len(subjects), 1, 1)

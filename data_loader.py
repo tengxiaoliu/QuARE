@@ -3,7 +3,7 @@ import json
 import os
 # from pytorch_pretrained_bert import BertTokenizer
 import torch
-from tokenize import get_tokenizer
+from utils import get_tokenizer
 import numpy as np
 from random import choice
 
@@ -31,11 +31,14 @@ QA_BERT_MAX_LEN = 512
 #     return tokens + s
 
 
-def get_context_question(text, sub_text, rel_text, config, template=False):
+def get_context_question(tokens, sub_text, rel_text, config, template=False):
     """
     combine context, question, and tokenize
     :return: context + question tokens, within BERT_MAX_LEN
     """
+
+    sub = ''.join([i.lstrip("##") for i in sub_text[0]])
+    sub_text = ' '.join(sub.split('[unused1]'))
 
     if template:
         json_tmpl = json.load(open(os.path.join(config.data_path + 'question_template.json')))
@@ -48,15 +51,21 @@ def get_context_question(text, sub_text, rel_text, config, template=False):
     # todo: debug
     print("DL@qst: ", question)
 
-    ctx_qst_text = text + question
-    ctx_qst_text = ' '.join(ctx_qst_text.split()[:config.max_qa_len])
-    ctx_qst_tokens = tokenizer.tokenize(ctx_qst_text)
+    # ctx_qst_text = text + question
+    # ctx_qst_text = ' '.join(ctx_qst_text.split()[:config.max_qa_len])
+
+    qst_tokens = tokenizer.tokenize(question)
+
+    ctx_qst_tokens = tokens[:-1] + qst_tokens[1:]
+    print("qa_tokens", ctx_qst_tokens)
+    # todo why tokenizer separate by "unused1"????
+
     if len(ctx_qst_tokens) > QA_BERT_MAX_LEN:
         ctx_qst_tokens = ctx_qst_tokens[: QA_BERT_MAX_LEN]
 
     ctx_qst_text_len = len(ctx_qst_tokens)
 
-    token_ids, segment_ids = tokenizer.encode(first=ctx_qst_text)
+    token_ids, segment_ids = tokenizer.encode(first=ctx_qst_tokens)
     masks = segment_ids
     if len(token_ids) > ctx_qst_text_len:
         token_ids = token_ids[:ctx_qst_text_len]
@@ -162,7 +171,9 @@ class MyDataset(Dataset):
                 # 与该sub,rel对应的obj list (可能是1项或多项) (obj_head_idx, obj_tail_idx)
                 obj_list = sr2o_map.get((sub_head_idx, sub_tail_idx, rel_id))
                 # randomly select a gold subject
-                rel_text = self.id2rel[rel_id]
+
+                rel_text = self.id2rel[str(rel_id)]
+                print("dataloader: ", rel_id, rel_text)
 
                 # get context + question (with selected subject and relation) tokens
                 qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
@@ -176,8 +187,8 @@ class MyDataset(Dataset):
                 obj_qa_tags = np.zeros(qa_text_len, self.config.num_labels)
                 if not NEG: # positive sample
                     for obj in obj_list:
-                        obj_qa_tags[obj[0]][1] = 1  # start tag
-                        obj_qa_tags[obj[1]][3] = 1  # end tag following huggingface
+                        obj_qa_tags[obj[0]][0] = 1  # start tag
+                        obj_qa_tags[obj[1]][1] = 1  # end tag following huggingface
 
                 # obj_heads, obj_tails = np.zeros((text_len, self.config.rel_num)),
                 # np.zeros((text_len, self.config.rel_num))
@@ -271,7 +282,6 @@ def my_collate_fn(batch):
 
 def get_loader(config, prefix, is_test=False, num_workers=0, collate_fn=my_collate_fn):
     dataset = MyDataset(config, prefix, is_test, tokenizer)
-    print("Loaded {} data from {}.json".format(str(dataset.__len__()), prefix))
     if not is_test:
         data_loader = DataLoader(dataset=dataset,
                                  batch_size=config.batch_size,
@@ -279,6 +289,7 @@ def get_loader(config, prefix, is_test=False, num_workers=0, collate_fn=my_colla
                                  pin_memory=True,
                                  num_workers=num_workers,
                                  collate_fn=collate_fn)
+        print("Loaded {} data from {}.json".format(str(dataset.__len__()), prefix))
     else:
         data_loader = DataLoader(dataset=dataset,
                                  batch_size=1,
@@ -286,6 +297,7 @@ def get_loader(config, prefix, is_test=False, num_workers=0, collate_fn=my_colla
                                  pin_memory=True,
                                  num_workers=num_workers,
                                  collate_fn=collate_fn)
+        print("Loaded {} data from {}.json".format(str(dataset.__len__()), prefix))
     return data_loader
 
 

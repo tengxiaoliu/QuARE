@@ -19,7 +19,7 @@ class QAre(nn.Module):
         # todo: design QA module from huggingface
 
         self.qa_linear = nn.Linear(self.bert_dim, self.num_labels)
-        self.dropout = nn.Dropout(config.dropout_prob)
+        # self.dropout = nn.Dropout(config.dropout_prob)
         self.loss_func = nn.CrossEntropyLoss()
         self.theta = config.theta
 
