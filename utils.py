@@ -13,6 +13,7 @@ class HBTokenizer(Tokenizer):
             text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
             text = text.lower()
         spaced = ''
+        # print("utils@", text)
         for ch in text:
             if ord(ch) == 0 or ord(ch) == 0xfffd or self._is_control(ch):
                 continue

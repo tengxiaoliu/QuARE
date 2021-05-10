@@ -11,7 +11,6 @@ tokenizer = get_tokenizer('/home/ubuntu/pycharm_proj/pretrained_models/bert/bert
 
 """
 对于每一个句子，已经提取出subject->relation/object的对应map
-得到的是
 """
 BERT_MAX_LEN = 512
 QA_BERT_MAX_LEN = 512
@@ -31,7 +30,7 @@ QA_BERT_MAX_LEN = 512
 #     return tokens + s
 
 
-def get_context_question(tokens, sub_text, rel_text, config, template=False):
+def get_context_question(text, tokens, sub_text, rel_text, config, template=False):
     """
     combine context, question, and tokenize
     :return: context + question tokens, within BERT_MAX_LEN
@@ -49,23 +48,24 @@ def get_context_question(tokens, sub_text, rel_text, config, template=False):
         question = "Find the entities that have relation " + rel_text + " with subject " + sub_text
 
     # todo: debug
-    print("DL@qst: ", question)
+    # print("DL@qst: ", question)
 
     # ctx_qst_text = text + question
     # ctx_qst_text = ' '.join(ctx_qst_text.split()[:config.max_qa_len])
-
+    qa_text = text + " " + question
     qst_tokens = tokenizer.tokenize(question)
-
     ctx_qst_tokens = tokens[:-1] + qst_tokens[1:]
-    print("qa_tokens", ctx_qst_tokens)
-    # todo why tokenizer separate by "unused1"????
+
+    # print("qa_tokens@", ctx_qst_tokens)
+    # print("qa_text@ ", qa_text)
+    # tokenizer separate by "unused1": indicate blank space in sentences (boundaries of entities)
 
     if len(ctx_qst_tokens) > QA_BERT_MAX_LEN:
         ctx_qst_tokens = ctx_qst_tokens[: QA_BERT_MAX_LEN]
 
     ctx_qst_text_len = len(ctx_qst_tokens)
 
-    token_ids, segment_ids = tokenizer.encode(first=ctx_qst_tokens)
+    token_ids, segment_ids = tokenizer.encode(first=qa_text)
     masks = segment_ids
     if len(token_ids) > ctx_qst_text_len:
         token_ids = token_ids[:ctx_qst_text_len]
@@ -173,18 +173,19 @@ class MyDataset(Dataset):
                 # randomly select a gold subject
 
                 rel_text = self.id2rel[str(rel_id)]
-                print("dataloader: ", rel_id, rel_text)
+                # print("dataloader: ", rel_id, rel_text)
 
                 # get context + question (with selected subject and relation) tokens
                 qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
-                    get_context_question(tokens, sub_text, rel_text, self.config)
+                    get_context_question(text, tokens, sub_text, rel_text, self.config)
                 # chunk -> tokenize -> chunk
 
                 sub_head, sub_tail = np.zeros(text_len), np.zeros(text_len)
                 sub_head[sub_head_idx] = 1
                 sub_tail[sub_tail_idx] = 1
-                # size: text_len, rel_num (each column is a sentence)
-                obj_qa_tags = np.zeros(qa_text_len, self.config.num_labels)
+                # size: text_len, num_labels (each column is a sentence)
+                obj_qa_tags = np.zeros((qa_text_len, self.config.num_labels))
+
                 if not NEG: # positive sample
                     for obj in obj_list:
                         obj_qa_tags[obj[0]][0] = 1  # start tag
@@ -214,11 +215,13 @@ class MyDataset(Dataset):
             # todo: 怎样构造测试tensor？
             rel_id = 0
             qa_token_ids, qa_masks, qa_tokens, qa_text_len = token_ids, masks, tokens, text_len
-            obj_qa_tags = np.zeros(self.config.max_qa_len, self.config.num_labels)
+            obj_qa_tags = np.zeros((qa_text_len, self.config.num_labels))
             # obj_heads, obj_tails = np.zeros((text_len, self.config.rel_num)),
             # np.zeros((text_len, self.config.rel_num))
             # return token_ids, masks, text_len, sub_heads, sub_tails, sub_head, sub_tail, obj_heads, obj_tails, \
             #        ins_json_data['triple_list'], tokens
+            # for the convenience of testing
+            qa_tokens = text
             return token_ids, masks, text_len, sub_heads, sub_tails, sub_head, sub_tail, rel_id, qa_token_ids, \
                    qa_masks, qa_text_len, obj_qa_tags, ins_json_data['triple_list'], tokens, qa_tokens
 
@@ -235,6 +238,7 @@ def my_collate_fn(batch):
     cur_batch = len(batch)
     max_text_len = max(text_len)
     max_qa_text_len = max(qa_text_len)
+
     batch_token_ids = torch.LongTensor(cur_batch, max_text_len).zero_()
     batch_masks = torch.LongTensor(cur_batch, max_text_len).zero_()
     batch_sub_heads = torch.Tensor(cur_batch, max_text_len).zero_()
@@ -244,7 +248,7 @@ def my_collate_fn(batch):
 
     batch_qa_token_ids = torch.LongTensor(cur_batch, max_qa_text_len).zero_()
     batch_qa_masks = torch.LongTensor(cur_batch, max_qa_text_len).zero_()
-    batch_obj_qa_tags = torch.Tensor(cur_batch, max_qa_text_len, 5).zero_()
+    batch_obj_qa_tags = torch.Tensor(cur_batch, max_qa_text_len, 2).zero_()  # self.config.num_labels
 
     # batch_obj_heads = torch.Tensor(cur_batch, max_text_len, 24).zero_()
     # batch_obj_tails = torch.Tensor(cur_batch, max_text_len, 24).zero_()
@@ -258,8 +262,8 @@ def my_collate_fn(batch):
         batch_sub_head[i, :text_len[i]].copy_(torch.from_numpy(sub_head[i]))
         batch_sub_tail[i, :text_len[i]].copy_(torch.from_numpy(sub_tail[i]))
 
-        batch_qa_token_ids[i, :qa_text_len[i], :].copy_(torch.from_numpy(qa_token_ids[i]))
-        batch_qa_masks[i, :qa_text_len[i], :].copy_(torch.from_numpy(qa_masks[i]))
+        batch_qa_token_ids[i, :qa_text_len[i]].copy_(torch.from_numpy(qa_token_ids[i]))
+        batch_qa_masks[i, :qa_text_len[i]].copy_(torch.from_numpy(qa_masks[i]))
         batch_obj_qa_tags[i, :qa_text_len[i], :].copy_(torch.from_numpy(obj_qa_tags[i]))
         # batch_obj_heads[i, :text_len[i], :].copy_(torch.from_numpy(obj_heads[i]))
         # batch_obj_tails[i, :text_len[i], :].copy_(torch.from_numpy(obj_tails[i]))
@@ -271,7 +275,7 @@ def my_collate_fn(batch):
             'sub_head': batch_sub_head,
             'sub_tail': batch_sub_tail,
             'qa_token_ids': batch_qa_token_ids,
-            'qa_masks': batch_masks,
+            'qa_masks': batch_qa_masks,
             'obj_qa_tags': batch_obj_qa_tags,
             # 'obj_heads': batch_obj_heads,
             # 'obj_tails': batch_obj_tails,
@@ -289,7 +293,7 @@ def get_loader(config, prefix, is_test=False, num_workers=0, collate_fn=my_colla
                                  pin_memory=True,
                                  num_workers=num_workers,
                                  collate_fn=collate_fn)
-        print("Loaded {} data from {}.json".format(str(dataset.__len__()), prefix))
+        print("Loading {} data from {}.json".format(str(dataset.__len__()), prefix))
     else:
         data_loader = DataLoader(dataset=dataset,
                                  batch_size=1,
@@ -297,7 +301,7 @@ def get_loader(config, prefix, is_test=False, num_workers=0, collate_fn=my_colla
                                  pin_memory=True,
                                  num_workers=num_workers,
                                  collate_fn=collate_fn)
-        print("Loaded {} data from {}.json".format(str(dataset.__len__()), prefix))
+        print("Loading {} data from {}.json".format(str(dataset.__len__()), prefix))
     return data_loader
 
 

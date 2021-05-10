@@ -129,6 +129,7 @@ class QAre(nn.Module):
     def get_encoded_text(self, token_ids, mask):
         # [batch_size, seq_len, bert_dim(768)]
         # print("Inside get_encoded_text")
+
         encoded_text = self.bert(token_ids, attention_mask=mask)[0]
         return encoded_text
 
@@ -151,9 +152,12 @@ class QAre(nn.Module):
         # [batch_size, seq_len]
         qa_token_ids = data['qa_token_ids']
         # [batch_size, seq_len]
-        qa_mask = data['qa_mask']
+        qa_masks = data['qa_masks']
         # [batch_size, seq_len, bert_dim(768)]
-        qa_encoded_text = self.get_encoded_text(qa_token_ids, qa_mask)
+
+        # print("getencoded@", len(qa_token_ids[0]), "\nmask@", len(qa_masks[0]))
+
+        qa_encoded_text = self.get_encoded_text(qa_token_ids, qa_masks)
         # [batch_size, seq_len, rel_num]
         qa_outputs = self.get_objs_for_specific_sub(qa_encoded_text)
 

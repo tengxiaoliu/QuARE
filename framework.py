@@ -86,7 +86,7 @@ class Framework(object):
                 sub_heads_loss = loss(data['sub_heads'], pred_sub_heads, data['mask'])
                 sub_tails_loss = loss(data['sub_tails'], pred_sub_tails, data['mask'])
 
-                qa_outputs_loss = loss(data['obj_qa_tags'], qa_outputs, data['qa_mask'])
+                qa_outputs_loss = loss(data['obj_qa_tags'], qa_outputs, data['qa_masks'])
 
                 total_loss = theta * (sub_heads_loss + sub_tails_loss) + (1 - theta) * qa_outputs_loss
 
@@ -158,6 +158,7 @@ class Framework(object):
 
         test_data_prefetcher = data_loader.DataPreFetcher(test_data_loader)
         data = test_data_prefetcher.next()
+        # todo: 在此处所有data load完毕？
         id2rel = json.load(open(os.path.join(self.config.data_path, 'rel2id.json')))[0]
         correct_num, predict_num, gold_num = 0, 0, 0
 
@@ -166,10 +167,9 @@ class Framework(object):
                 token_ids = data['token_ids']
                 tokens = data['tokens'][0]
                 mask = data['mask']
+                text = data['qa_tokens']
 
-                # Debug
-                # print("-------------doing test------------")
-                # print(type(model))
+                # print("test@text: ", text) todo: why print all texts?
                 # get subjects
                 if hasattr(model, 'module'):
                     encoded_text = model.module.get_encoded_text(token_ids, mask)
@@ -191,16 +191,25 @@ class Framework(object):
                 if subjects:
                     # get subjects text
                     sub_list = []
+                    triple_list = []
                     for subject_idx, subject in enumerate(subjects):
                         sub = subject[0]
                         sub = ''.join([i.lstrip("##") for i in sub])
                         sub = ' '.join(sub.split('[unused1]'))
                         sub_list.append(sub)
+
+                    # 对每个subject进行预测，问题生成
                     for sub_text in sub_list:
+                        # print("test@sub:", sub_text)
                         for i in range(REL_NUM):
-                            rel_text = id2rel[i]
+                            rel_text = id2rel[str(int(i))]
                             qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
-                                get_context_question(tokens, sub_text, rel_text, self.config)
+                                get_context_question(text[0], tokens, sub_text, rel_text, self.config)
+
+                            qa_token_ids = torch.from_numpy(qa_token_ids).unsqueeze(0).cuda()
+                            qa_masks = torch.from_numpy(qa_masks).unsqueeze(0).cuda()
+
+                            # print("test@qa: ", type(qa_token_ids), "\n", qa_masks)
                             if hasattr(model, 'module'):
                                 qa_encoded_text = model.module.get_encoded_text(qa_token_ids, qa_masks)
                                 # [batch_size, seq_len, rel_num]
@@ -210,50 +219,33 @@ class Framework(object):
                                 # [batch_size, seq_len, rel_num]
                                 qa_outputs = model.get_objs_for_specific_sub(qa_encoded_text)
                             # todo: get obj from qa_outputs
-
-
-
-
-
-
-                    triple_list = []
-                    # [subject_num, seq_len, bert_dim]
-                    repeated_encoded_text = encoded_text.repeat(len(subjects), 1, 1)
-                    # [subject_num, 1, seq_len]
-                    sub_head_mapping = torch.Tensor(len(subjects), 1, encoded_text.size(1)).zero_()
-                    sub_tail_mapping = torch.Tensor(len(subjects), 1, encoded_text.size(1)).zero_()
-                    for subject_idx, subject in enumerate(subjects):
-                        sub_head_mapping[subject_idx][0][subject[1]] = 1
-                        sub_tail_mapping[subject_idx][0][subject[2]] = 1
-                    sub_tail_mapping = sub_tail_mapping.to(repeated_encoded_text)
-                    sub_head_mapping = sub_head_mapping.to(repeated_encoded_text)
-                    if hasattr(model, 'module'):
-                        pred_obj_heads, pred_obj_tails = model.module.get_objs_for_specific_sub(sub_head_mapping,
-                                                                                                sub_tail_mapping,
-                                                                                                repeated_encoded_text)
-                    else:
-                        pred_obj_heads, pred_obj_tails = model.get_objs_for_specific_sub(sub_head_mapping, sub_tail_mapping, repeated_encoded_text)
-
-                    for subject_idx, subject in enumerate(subjects):
-                        sub = subject[0]
-                        sub = ''.join([i.lstrip("##") for i in sub])
-                        sub = ' '.join(sub.split('[unused1]'))
-                        obj_heads, obj_tails = np.where(pred_obj_heads.cpu()[subject_idx] > h_bar), np.where(pred_obj_tails.cpu()[subject_idx] > t_bar)
-                        for obj_head, rel_head in zip(*obj_heads):
-                            for obj_tail, rel_tail in zip(*obj_tails):
-                                if obj_head <= obj_tail and rel_head == rel_tail:
-                                    rel = id2rel[str(int(rel_head))]
-                                    obj = tokens[obj_head: obj_tail]
-                                    obj = ''.join([i.lstrip("##") for i in obj])
-                                    obj = ' '.join(obj.split('[unused1]'))
-                                    triple_list.append((sub, rel, obj))
-                                    break
+                            start_logits, end_logits = qa_outputs.split(1, dim=-1)
+                            # [batch_size, seq_len]
+                            start_logits = start_logits.squeeze(-1)
+                            # [batch_size, seq_len]
+                            end_logits = end_logits.squeeze(-1)
+                            # print("test@start_logits:", start_logits)
+                            # print("test@end_logits:", end_logits)
+                            obj_heads, obj_tails = np.where(start_logits[0].cpu()[0] > h_bar), \
+                                                   np.where(end_logits[0].cpu()[0] > t_bar)
+                            # no object is flagged
+                            if len(obj_heads[0]) == 0 or len(obj_tails[0]) == 0:
+                                continue
+                            for obj_head in zip(*obj_heads):
+                                for obj_tail in zip(*obj_tails):
+                                    if obj_head <= obj_tail:
+                                        obj = tokens[obj_head: obj_tail]
+                                        obj = ''.join([i.lstrip("##") for i in obj])
+                                        obj = ' '.join(obj.split('[unused1]'))
+                                        triple_list.append((sub_text, rel_text, obj))
+                                        break
                     triple_set = set()
                     for s, r, o in triple_list:
                         triple_set.add((s, r, o))
                     pred_list = list(triple_set)
                 else:
                     pred_list = []
+
                 pred_triples = set(pred_list)
                 gold_triples = set(to_tup(data['triples'][0]))
 
