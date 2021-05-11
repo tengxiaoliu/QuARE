@@ -76,5 +76,5 @@
         "21": "find all entities that are religion of XXX", 
         "22": "find all location entities that are locations of XXX",
         "23": "find all entities that are located in XXX"
-    },
+    }
 ]

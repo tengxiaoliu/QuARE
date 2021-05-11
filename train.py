@@ -24,7 +24,7 @@ parser.add_argument('--test_prefix', type=str, default='test_triples')
 parser.add_argument('--max_len', type=int, default=150)
 parser.add_argument('--max_qa_len', type=int, default=170)
 parser.add_argument('--rel_num', type=int, default=24)
-parser.add_argument('--num_labels', type=int, default=2)
+parser.add_argument('--num_labels', type=int, default=3)  # BEO
 parser.add_argument('--period', type=int, default=50, help='print loss per PERIOD global steps')
 parser.add_argument('--seed', type=int, default=71)
 parser.add_argument('--theta', type=float, default=0.5)

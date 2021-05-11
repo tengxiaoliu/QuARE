@@ -80,6 +80,7 @@ class Framework(object):
         for epoch in range(self.config.max_epoch):
             train_data_prefetcher = data_loader.DataPreFetcher(train_data_loader)
             data = train_data_prefetcher.next()
+
             while data is not None:
                 pred_sub_heads, pred_sub_tails, qa_outputs = model(data)
 
@@ -114,16 +115,16 @@ class Framework(object):
                 # call the test function
                 precision, recall, f1_score = self.test(dev_data_loader, model)
                 model.train()
-                self.logging('epoch {:3d}, eval time: {:5.2f}s, f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}'.
-                             format(epoch, time.time() - eval_start_time, f1_score, precision, recall))
+                self.logging('epoch {:3d}, eval time: {:5.2f}s, f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}'
+                             .format(epoch, time.time() - eval_start_time, f1_score, precision, recall))
 
                 if f1_score > best_f1_score:
                     best_f1_score = f1_score
                     best_epoch = epoch
                     best_precision = precision
                     best_recall = recall
-                    self.logging("saving the model, epoch: {:3d}, best f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".
-                                 format(best_epoch, best_f1_score, precision, recall))
+                    self.logging("saving the model, epoch: {:3d}, best f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
+                                 .format(best_epoch, best_f1_score, precision, recall))
                     # save the best model
                     path = os.path.join(self.config.checkpoint_dir, self.config.model_save_name)
                     print(path)
@@ -161,6 +162,7 @@ class Framework(object):
         # todo: 在此处所有data load完毕？
         id2rel = json.load(open(os.path.join(self.config.data_path, 'rel2id.json')))[0]
         correct_num, predict_num, gold_num = 0, 0, 0
+        sub_correct_num, sub_predict_num, sub_gold_num = 0, 0, 0
 
         while data is not None:
             with torch.no_grad():
@@ -188,10 +190,11 @@ class Framework(object):
                         sub_tail = sub_tail[0]
                         subject = tokens[sub_head: sub_tail]
                         subjects.append((subject, sub_head, sub_tail))
+
+                sub_list = []
+                triple_list = []
                 if subjects:
                     # get subjects text
-                    sub_list = []
-                    triple_list = []
                     for subject_idx, subject in enumerate(subjects):
                         sub = subject[0]
                         sub = ''.join([i.lstrip("##") for i in sub])
@@ -200,11 +203,17 @@ class Framework(object):
 
                     # 对每个subject进行预测，问题生成
                     for sub_text in sub_list:
-                        # print("test@sub:", sub_text)
+                        # print("test@text:", text[0])
+                        # print("===================================test@sub:", sub_text)
+
+                        # subject correctly identified
                         for i in range(REL_NUM):
                             rel_text = id2rel[str(int(i))]
+
                             qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
-                                get_context_question(text[0], tokens, sub_text, rel_text, self.config)
+                                get_context_question(text[0], tokens, [sub_text], rel_text, self.config)
+
+                            # print("test@qa:", qa_tokens)
 
                             qa_token_ids = torch.from_numpy(qa_token_ids).unsqueeze(0).cuda()
                             qa_masks = torch.from_numpy(qa_masks).unsqueeze(0).cuda()
@@ -219,26 +228,52 @@ class Framework(object):
                                 # [batch_size, seq_len, rel_num]
                                 qa_outputs = model.get_objs_for_specific_sub(qa_encoded_text)
                             # todo: get obj from qa_outputs
-                            start_logits, end_logits = qa_outputs.split(1, dim=-1)
-                            # [batch_size, seq_len]
-                            start_logits = start_logits.squeeze(-1)
-                            # [batch_size, seq_len]
-                            end_logits = end_logits.squeeze(-1)
-                            # print("test@start_logits:", start_logits)
-                            # print("test@end_logits:", end_logits)
-                            obj_heads, obj_tails = np.where(start_logits[0].cpu()[0] > h_bar), \
-                                                   np.where(end_logits[0].cpu()[0] > t_bar)
+                            # =================ver1.0
+                            # start_logits, end_logits = qa_outputs.split(1, dim=-1)
+                            # # [batch_size, seq_len]
+                            # start_logits = start_logits.squeeze(-1)
+                            # # [batch_size, seq_len]
+                            # end_logits = end_logits.squeeze(-1)
+                            # # print("test@start_logits:", start_logits)
+                            # # print("test@end_logits:", end_logits)
+                            # obj_heads, obj_tails = np.where(start_logits[0].cpu()[0] > h_bar), \
+                            #                        np.where(end_logits[0].cpu()[0] > t_bar)
                             # no object is flagged
-                            if len(obj_heads[0]) == 0 or len(obj_tails[0]) == 0:
+                            # if len(obj_heads[0]) == 0 or len(obj_tails[0]) == 0:
+                            #     continue
+                            # for obj_head in zip(*obj_heads):
+                            #     for obj_tail in zip(*obj_tails):
+                            #         if obj_head <= obj_tail:
+                            #             obj = tokens[obj_head: obj_tail]
+                            #             obj = ''.join([i.lstrip("##") for i in obj])
+                            #             obj = ' '.join(obj.split('[unused1]'))
+                            #             triple_list.append((sub_text, rel_text, obj))
+                            #             print("test@triple:", sub_text, rel_text, obj)
+                            #             break
+
+                            # =================ver2.0
+                            qa_tag_idx = torch.argmax(qa_outputs, dim=-1).squeeze(dim=0)
+
+                            obj_heads = torch.where(qa_tag_idx == 0)[0]
+                            # print("test@obj", obj_heads[0], obj_tails[0])
+                            if len(obj_heads) == 0:
                                 continue
-                            for obj_head in zip(*obj_heads):
-                                for obj_tail in zip(*obj_tails):
-                                    if obj_head <= obj_tail:
-                                        obj = tokens[obj_head: obj_tail]
-                                        obj = ''.join([i.lstrip("##") for i in obj])
-                                        obj = ' '.join(obj.split('[unused1]'))
-                                        triple_list.append((sub_text, rel_text, obj))
-                                        break
+                            # print("test@qa_tag_idx:", qa_tag_idx)
+                            # print("test@obj", obj_heads)
+                            for obj_head in obj_heads:
+                                obj_tail = int(obj_head) + 1
+                                while int(qa_tag_idx[obj_tail]) == 1 and obj_tail < qa_text_len:
+                                    obj_tail += 1
+                                obj = tokens[obj_head: obj_tail]
+                                print("test@objs", obj)
+                                obj = ''.join([i.lstrip("##") for i in obj])
+                                obj = ' '.join(obj.split('[unused1]'))
+                                if obj == ' ' or obj == '':
+                                    continue
+                                triple_list.append((sub_text, rel_text, obj))
+                                print("test@triple:", sub_text, rel_text, obj)
+                                # break
+
                     triple_set = set()
                     for s, r, o in triple_list:
                         triple_set.add((s, r, o))
@@ -248,10 +283,16 @@ class Framework(object):
 
                 pred_triples = set(pred_list)
                 gold_triples = set(to_tup(data['triples'][0]))
+                pred_subjects = set(sub_list)
+                gold_subjects = set([tri[0] for tri in gold_triples])
 
                 correct_num += len(pred_triples & gold_triples)
                 predict_num += len(pred_triples)
                 gold_num += len(gold_triples)
+
+                sub_correct_num += len(pred_subjects & gold_subjects)
+                sub_predict_num += len(pred_subjects)
+                sub_gold_num += len(gold_subjects)
 
                 if output:
                     result = json.dumps({
@@ -274,6 +315,8 @@ class Framework(object):
                 data = test_data_prefetcher.next()
 
         print("correct_num: {:3d}, predict_num: {:3d}, gold_num: {:3d}".format(correct_num, predict_num, gold_num))
+        print("subjects@ correct_num: {:3d}, predict_num: {:3d}, gold_num: {:3d}".
+              format(sub_correct_num, sub_predict_num, sub_gold_num))
 
         precision = correct_num / (predict_num + 1e-10)
         recall = correct_num / (gold_num + 1e-10)

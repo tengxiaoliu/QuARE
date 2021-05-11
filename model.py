@@ -109,13 +109,6 @@ class QAre(nn.Module):
         :param encoded_text: input sentence pretrained with BERT
         :return: predicted object head, predicted object tail
         """
-        # # [batch_size, 1, bert_dim]
-        # sub_head = torch.matmul(sub_head_mapping, encoded_text)
-        # # [batch_size, 1, bert_dim]
-        # sub_tail = torch.matmul(sub_tail_mapping, encoded_text)
-        # # [batch_size, 1, bert_dim]
-        # sub = (sub_head + sub_tail) / 2
-        # # [batch_size, seq_len, bert_dim]
 
         # create embeddings for ctx_qst, given subject and relation
 
@@ -129,7 +122,6 @@ class QAre(nn.Module):
     def get_encoded_text(self, token_ids, mask):
         # [batch_size, seq_len, bert_dim(768)]
         # print("Inside get_encoded_text")
-
         encoded_text = self.bert(token_ids, attention_mask=mask)[0]
         return encoded_text
 
@@ -171,5 +163,4 @@ class QAre(nn.Module):
         :param sub_head:
         :param sub_tail:
         :return: a text question given ground truth subject and tail
-        if a corresponding relation doesn't contain an object in sentence, all tag should be 0
         """

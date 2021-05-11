@@ -30,7 +30,7 @@ QA_BERT_MAX_LEN = 512
 #     return tokens + s
 
 
-def get_context_question(text, tokens, sub_text, rel_text, config, template=False):
+def get_context_question(text, tokens, sub_text, rel_text, config, template=True):
     """
     combine context, question, and tokenize
     :return: context + question tokens, within BERT_MAX_LEN
@@ -40,9 +40,9 @@ def get_context_question(text, tokens, sub_text, rel_text, config, template=Fals
     sub_text = ' '.join(sub.split('[unused1]'))
 
     if template:
-        json_tmpl = json.load(open(os.path.join(config.data_path + 'question_template.json')))
+        json_tmpl = json.load(open(os.path.join(config.data_path, 'question_template.json')))
         rel_id = json_tmpl[1][rel_text]
-        question = json_tmpl[2][rel_id]
+        question = json_tmpl[2][str(int(rel_id))]
         question = question.replace("XXX", sub_text)
     else:
         question = "Find the entities that have relation " + rel_text + " with subject " + sub_text
@@ -64,6 +64,7 @@ def get_context_question(text, tokens, sub_text, rel_text, config, template=Fals
         ctx_qst_tokens = ctx_qst_tokens[: QA_BERT_MAX_LEN]
 
     ctx_qst_text_len = len(ctx_qst_tokens)
+    # print("qa_tokens@", ctx_qst_tokens)
 
     token_ids, segment_ids = tokenizer.encode(first=qa_text)
     masks = segment_ids
@@ -109,7 +110,7 @@ class MyDataset(Dataset):
         todo: how about negative sampling?
         """
 
-        NEG = choice([1,1,1,1,1,0])
+        NEG = choice([1,1,1,1,1,0,0,0,0,0])  # [1,1,1,1,1,0]
 
         ins_json_data = self.json_data[idx]
         text = ins_json_data['text']
@@ -185,11 +186,21 @@ class MyDataset(Dataset):
                 sub_tail[sub_tail_idx] = 1
                 # size: text_len, num_labels (each column is a sentence)
                 obj_qa_tags = np.zeros((qa_text_len, self.config.num_labels))
+                for i in range(qa_text_len):
+                    obj_qa_tags[i][2] = 1  # tag O
 
-                if not NEG: # positive sample
+                if not NEG:  # positive sample
                     for obj in obj_list:
-                        obj_qa_tags[obj[0]][0] = 1  # start tag
-                        obj_qa_tags[obj[1]][1] = 1  # end tag following huggingface
+                        obj_qa_tags[obj[0]][0] = 1
+                        obj_qa_tags[obj[0]][2] = 0
+                        for idx in range(obj[0]+1, obj[1]+1):
+                            obj_qa_tags[idx][1] = 1
+                            obj_qa_tags[idx][2] = 0
+
+                        # obj_qa_tags[obj[0]][0] = 1  # start tag, B
+                        # obj_qa_tags[obj[0]][2] = 0
+                        # obj_qa_tags[obj[1]][1] = 1  # end tag following huggingface, I
+                        # obj_qa_tags[obj[1]][2] = 0
 
                 # obj_heads, obj_tails = np.zeros((text_len, self.config.rel_num)),
                 # np.zeros((text_len, self.config.rel_num))
@@ -197,6 +208,10 @@ class MyDataset(Dataset):
                 # for ro in s2ro_map.get((sub_head_idx, sub_tail_idx), []):
                 #     obj_qa_tags[ro[0]][1] = 1  # start tag
                 #     obj_qa_tags[ro[1]][3] = 1  # end tag following huggingface
+
+                # print("data@qa_tokens", qa_tokens)
+                # print("data@obj_qa_tags", obj_qa_tags)
+                # print("data@triples", ins_json_data['triple_list'])
 
                 return token_ids, masks, text_len, sub_heads, sub_tails, sub_head, sub_tail, rel_id, qa_token_ids, \
                        qa_masks, qa_text_len, obj_qa_tags, ins_json_data['triple_list'], tokens, qa_tokens
@@ -248,7 +263,7 @@ def my_collate_fn(batch):
 
     batch_qa_token_ids = torch.LongTensor(cur_batch, max_qa_text_len).zero_()
     batch_qa_masks = torch.LongTensor(cur_batch, max_qa_text_len).zero_()
-    batch_obj_qa_tags = torch.Tensor(cur_batch, max_qa_text_len, 2).zero_()  # self.config.num_labels
+    batch_obj_qa_tags = torch.Tensor(cur_batch, max_qa_text_len, 3).zero_()  # self.config.num_labels
 
     # batch_obj_heads = torch.Tensor(cur_batch, max_text_len, 24).zero_()
     # batch_obj_tails = torch.Tensor(cur_batch, max_text_len, 24).zero_()
