@@ -156,11 +156,3 @@ class QAre(nn.Module):
         # [batch_size, seq_len, rel_num]
         # pred_obj_heads, pred_obj_tails = self.get_objs_for_specific_sub(encoded_text)
         return pred_sub_heads, pred_sub_tails, qa_outputs
-
-    def get_question(self, sub_head, sub_tail):
-        """
-        Get text question given ground truth subject index and (for each) relation
-        :param sub_head:
-        :param sub_tail:
-        :return: a text question given ground truth subject and tail
-        """

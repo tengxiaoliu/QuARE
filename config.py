@@ -18,9 +18,10 @@ class Config(object):
         # #bert directory
         self.bert_dir = args.bert_dir
         self.theta = args.theta
+        self.test_model_name = args.test_model_name
 
         # path and name
-        self.root = '/home/ubuntu/pycharm_proj/myqare'
+        self.root = '/home/ubuntu/pycharm_proj/qare'
         self.data_path = self.root + '/data/' + self.dataset
         self.checkpoint_dir = self.root + '/checkpoint/' + self.dataset
         self.log_dir = self.root + '/log/' + self.dataset
@@ -28,7 +29,7 @@ class Config(object):
         self.train_prefix = args.train_prefix
         self.dev_prefix = args.dev_prefix
         self.test_prefix = args.test_prefix
-        self.model_save_name = args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "0510" + ".pickle"
+        self.model_save_name = args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "_0512" + ".pickle"
         self.log_save_name = 'LOG_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size)
         self.result_save_name = 'RESULT_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + ".json"
 

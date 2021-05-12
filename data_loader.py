@@ -103,14 +103,8 @@ class MyDataset(Dataset):
         return len(self.json_data)
 
     def __getitem__(self, idx):
-        """
-        get
-        :param idx:
-        :return:
-        todo: how about negative sampling?
-        """
 
-        NEG = choice([1,1,1,1,1,0,0,0,0,0])  # [1,1,1,1,1,0]
+        NEG = choice([1,1,1,0])  # [1,1,1,1,1,0]
 
         ins_json_data = self.json_data[idx]
         text = ins_json_data['text']

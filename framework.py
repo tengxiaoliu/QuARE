@@ -14,6 +14,9 @@ import time
 REL_NUM = 24
 tokenizer = get_tokenizer('/home/ubuntu/pycharm_proj/pretrained_models/bert/bert-base-cased-vocab.txt')
 
+# todo: 取消在question中的tag，提高速度，删除单独的只有一个字母object
+
+
 class Framework(object):
     def __init__(self, con):
         self.config = con
@@ -113,10 +116,14 @@ class Framework(object):
                 eval_start_time = time.time()
                 model.eval()
                 # call the test function
-                precision, recall, f1_score = self.test(dev_data_loader, model)
+                sub_precision, sub_recall, sub_f1_score, precision, recall, f1_score = self.test(dev_data_loader, model)
                 model.train()
-                self.logging('epoch {:3d}, eval time: {:5.2f}s, f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}'
-                             .format(epoch, time.time() - eval_start_time, f1_score, precision, recall))
+                self.logging("Epoch {:3d}, eval time: {:5.2f}s, subject@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
+                             .format(epoch, time.time() - eval_start_time, sub_f1_score, sub_precision, sub_recall))
+                self.logging('triple@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}'
+                             .format(f1_score, precision, recall))
+                self.logging("Current best epoch: {:3d}, best f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
+                             .format(best_epoch, best_f1_score, best_precision, best_recall))
 
                 if f1_score > best_f1_score:
                     best_f1_score = f1_score
@@ -138,7 +145,7 @@ class Framework(object):
                      format(best_epoch, best_f1_score, best_precision, best_recall, time.time() - init_time))
 
     def test(self, test_data_loader, model, output=False, h_bar=0.5, t_bar=0.5):
-        # todo: design test
+        # todo: parallel testing
 
         if output:
             # check the result dir
@@ -205,6 +212,8 @@ class Framework(object):
                     for sub_text in sub_list:
                         # print("test@text:", text[0])
                         # print("===================================test@sub:", sub_text)
+                        if len(sub_text) > 20 or len(sub_text) <= 1:
+                            continue
 
                         # subject correctly identified
                         for i in range(REL_NUM):
@@ -265,13 +274,15 @@ class Framework(object):
                                 while int(qa_tag_idx[obj_tail]) == 1 and obj_tail < qa_text_len:
                                     obj_tail += 1
                                 obj = tokens[obj_head: obj_tail]
-                                print("test@objs", obj)
+                                # print("test@objs", obj)
                                 obj = ''.join([i.lstrip("##") for i in obj])
                                 obj = ' '.join(obj.split('[unused1]'))
                                 if obj == ' ' or obj == '':
                                     continue
+                                if obj[-1] == ' ':
+                                    obj = obj[:-1]
                                 triple_list.append((sub_text, rel_text, obj))
-                                print("test@triple:", sub_text, rel_text, obj)
+                                # print("test@triple:", sub_text, rel_text, obj, "**")
                                 # break
 
                     triple_set = set()
@@ -314,22 +325,28 @@ class Framework(object):
 
                 data = test_data_prefetcher.next()
 
-        print("correct_num: {:3d}, predict_num: {:3d}, gold_num: {:3d}".format(correct_num, predict_num, gold_num))
         print("subjects@ correct_num: {:3d}, predict_num: {:3d}, gold_num: {:3d}".
               format(sub_correct_num, sub_predict_num, sub_gold_num))
+        print("triple@ correct_num: {:3d}, predict_num: {:3d}, gold_num: {:3d}".format(correct_num, predict_num, gold_num))
 
         precision = correct_num / (predict_num + 1e-10)
         recall = correct_num / (gold_num + 1e-10)
         f1_score = 2 * precision * recall / (precision + recall + 1e-10)
-        return precision, recall, f1_score
+
+        sub_precision = sub_correct_num / (sub_predict_num + 1e-10)
+        sub_recall = sub_correct_num / (sub_gold_num + 1e-10)
+        sub_f1_score = 2 * sub_precision * sub_recall / (sub_precision + sub_recall + 1e-10)
+
+        return sub_precision, sub_recall, sub_f1_score, precision, recall, f1_score
 
     def testall(self, model_pattern):
         model = model_pattern(self.config)
-        path = os.path.join(self.config.checkpoint_dir, self.config.model_save_name)
+        path = os.path.join(self.config.checkpoint_dir, self.config.test_model_name)
         model.load_state_dict(torch.load(path))
         model.cuda()
         model.eval()
         test_data_loader = data_loader.get_loader(self.config, prefix=self.config.test_prefix, is_test=True)
-        precision, recall, f1_score = self.test(test_data_loader, model, True)
-        print("f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".format(f1_score, precision, recall))
+        sub_precision, sub_recall, sub_f1_score, precision, recall, f1_score = self.test(test_data_loader, model, True)
+        print("subject@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".format(sub_f1_score, sub_precision, sub_recall))
+        print("triple@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".format(f1_score, precision, recall))
 

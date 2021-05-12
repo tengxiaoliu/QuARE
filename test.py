@@ -7,8 +7,7 @@ import torch
 import numpy as np
 import random
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_name', type=str, default='QAre', help='name of the model')
@@ -18,7 +17,7 @@ parser.add_argument('--multi_gpu', type=bool, default=False)
 parser.add_argument('--dataset', type=str, default='NYT')
 parser.add_argument('--batch_size', type=int, default=6)
 parser.add_argument('--max_epoch', type=int, default=300)
-parser.add_argument('--test_epoch', type=int, default=5)
+parser.add_argument('--test_epoch', type=int, default=1)
 parser.add_argument('--train_prefix', type=str, default='train_triples')
 parser.add_argument('--dev_prefix', type=str, default='dev_triples')
 parser.add_argument('--test_prefix', type=str, default='test_triples')
@@ -53,4 +52,4 @@ model = {
     'QAre': model.QAre
 }
 
-fw.train(model[args.model_name])
+fw.testall(model[args.model_name])

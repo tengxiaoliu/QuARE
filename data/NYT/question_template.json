@@ -70,11 +70,11 @@
         "15": "find all person entities that are children of XXX",
         "16": "find all entities that are ethnicity of XXX",
         "17": "find all location entities that are the nationality of person XXX",
-        "18": "find all location entities that are the place that XXX lived",
-        "19": "find all location entities that are the place of birth of XXX",
-        "20": "find all entities that are profession of XXX",
-        "21": "find all entities that are religion of XXX", 
+        "18": "find all location entities that are the place that person XXX lived",
+        "19": "find all location entities that are the place of birth of person XXX",
+        "20": "find all entities that are profession of person XXX",
+        "21": "find all entities that are religion of person XXX",
         "22": "find all location entities that are locations of XXX",
-        "23": "find all entities that are located in XXX"
+        "23": "find all entities that are located in location XXX"
     }
 ]
