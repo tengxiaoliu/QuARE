@@ -14,6 +14,7 @@ class Config(object):
         # dataset
         self.dataset = args.dataset
         self.num_labels = args.num_labels
+        self.neg_samp = args.neg_samp
 
         # #bert directory
         self.bert_dir = args.bert_dir
@@ -29,9 +30,9 @@ class Config(object):
         self.train_prefix = args.train_prefix
         self.dev_prefix = args.dev_prefix
         self.test_prefix = args.test_prefix
-        self.model_save_name = args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "_0512" + ".pickle"
-        self.log_save_name = 'LOG_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size)
-        self.result_save_name = 'RESULT_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + ".json"
+        self.model_save_name = args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "_0514"
+        self.log_save_name = 'LOG_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "_0514"
+        self.result_save_name = 'RESULT_' + args.model_name + '_DATASET_' + self.dataset + "_LR_" + str(self.learning_rate) + "_BS_" + str(self.batch_size) + "_0514" + ".json"
 
         # log setting
         self.period = args.period

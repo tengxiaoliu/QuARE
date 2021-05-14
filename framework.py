@@ -11,7 +11,6 @@ import numpy as np
 import json
 import time
 
-REL_NUM = 24
 tokenizer = get_tokenizer('/home/ubuntu/pycharm_proj/pretrained_models/bert/bert-base-cased-vocab.txt')
 
 # todo: 取消在question中的tag，提高速度，删除单独的只有一个字母object
@@ -20,6 +19,7 @@ tokenizer = get_tokenizer('/home/ubuntu/pycharm_proj/pretrained_models/bert/bert
 class Framework(object):
     def __init__(self, con):
         self.config = con
+        self.REL_NUM = self.config.rel_num
 
     def logging(self, s, print_=True, log_=True):
         if print_:
@@ -111,31 +111,38 @@ class Framework(object):
 
                 data = train_data_prefetcher.next()
 
-            if (epoch + 1) % self.config.test_epoch == 0:
+            if (epoch + 1) % self.config.test_epoch == 0 and epoch > 2:
                 # start testing
                 eval_start_time = time.time()
                 model.eval()
                 # call the test function
+                self.logging("================Testing on dev================")
                 sub_precision, sub_recall, sub_f1_score, precision, recall, f1_score = self.test(dev_data_loader, model)
                 model.train()
-                self.logging("Epoch {:3d}, eval time: {:5.2f}s, subject@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
+                self.logging("Epoch {:3d}, eval time: {:5.2f}s \nsubject@ f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}"
                              .format(epoch, time.time() - eval_start_time, sub_f1_score, sub_precision, sub_recall))
-                self.logging('triple@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}'
+                self.logging('triple@ f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}'
                              .format(f1_score, precision, recall))
-                self.logging("Current best epoch: {:3d}, best f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
-                             .format(best_epoch, best_f1_score, best_precision, best_recall))
 
                 if f1_score > best_f1_score:
                     best_f1_score = f1_score
                     best_epoch = epoch
                     best_precision = precision
                     best_recall = recall
-                    self.logging("saving the model, epoch: {:3d}, best f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}"
-                                 .format(best_epoch, best_f1_score, precision, recall))
+
+                    self.logging("Current best epoch: {:3d}, best f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}"
+                                 .format(best_epoch, best_f1_score, best_precision, best_recall))
                     # save the best model
-                    path = os.path.join(self.config.checkpoint_dir, self.config.model_save_name)
-                    print(path)
+                    best_save_name = self.config.model_save_name \
+                                                  + "_epoch_%d_f1_%.4f.pickle" % (epoch, best_f1_score)
+                    path = os.path.join(self.config.checkpoint_dir, best_save_name)
+
+                    self.logging("Saving the model as" + path)
                     torch.save(model.module.state_dict(), path)
+                else:
+                    self.logging("Current best epoch: {:3d}, best f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}"
+                                 .format(best_epoch, best_f1_score, best_precision, best_recall))
+
 
             # manually release the unused cache
             torch.cuda.empty_cache()
@@ -216,7 +223,7 @@ class Framework(object):
                             continue
 
                         # subject correctly identified
-                        for i in range(REL_NUM):
+                        for i in range(self.REL_NUM):
                             rel_text = id2rel[str(int(i))]
 
                             qa_token_ids, qa_masks, qa_tokens, qa_text_len = \
@@ -347,6 +354,6 @@ class Framework(object):
         model.eval()
         test_data_loader = data_loader.get_loader(self.config, prefix=self.config.test_prefix, is_test=True)
         sub_precision, sub_recall, sub_f1_score, precision, recall, f1_score = self.test(test_data_loader, model, True)
-        print("subject@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".format(sub_f1_score, sub_precision, sub_recall))
-        print("triple@ f1: {:4.2f}, precision: {:4.2f}, recall: {:4.2f}".format(f1_score, precision, recall))
+        print("subject@ f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}".format(sub_f1_score, sub_precision, sub_recall))
+        print("triple@ f1: {:4.4f}, precision: {:4.4f}, recall: {:4.4f}".format(f1_score, precision, recall))
 

@@ -30,7 +30,7 @@ QA_BERT_MAX_LEN = 512
 #     return tokens + s
 
 
-def get_context_question(text, tokens, sub_text, rel_text, config, template=True):
+def get_context_question(text, tokens, sub_text, rel_text, config, template=False):
     """
     combine context, question, and tokenize
     :return: context + question tokens, within BERT_MAX_LEN
@@ -99,12 +99,16 @@ class MyDataset(Dataset):
         self.rel2id = json.load(open(os.path.join(self.config.data_path, 'rel2id.json')))[1]
         self.id2rel = json.load(open(os.path.join(self.config.data_path, 'rel2id.json')))[0]
 
+        self.rel_num = self.config.rel_num
+        self.neg_samp = self.config.neg_samp
+
     def __len__(self):
         return len(self.json_data)
 
     def __getitem__(self, idx):
 
-        NEG = choice([1,1,1,0])  # [1,1,1,1,1,0]
+        neg_list = int(self.neg_samp) * [1] + [0]
+        NEG = choice(neg_list)  # [1,1,1,1,1,0]
 
         ins_json_data = self.json_data[idx]
         text = ins_json_data['text']
@@ -156,7 +160,7 @@ class MyDataset(Dataset):
                     pos_rel_id = set()
                     for ro in s2ro_map.get((sub_head_idx, sub_tail_idx)):
                         pos_rel_id.add(ro[2])
-                    rel_id = choice(list(set([i for i in range(24)])-pos_rel_id))
+                    rel_id = choice(list(set([i for i in range(self.rel_num)])-pos_rel_id))
 
                 # 一次数据只选取一个gold subject，以及和这个subject对应的object/relation标签
                 # 在此处生成问题 context+question

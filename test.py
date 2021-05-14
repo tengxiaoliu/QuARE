@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import random
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_name', type=str, default='QAre', help='name of the model')
@@ -30,12 +30,14 @@ parser.add_argument('--period', type=int, default=50, help='print loss per PERIO
 parser.add_argument('--seed', type=int, default=71)
 parser.add_argument('--theta', type=float, default=0.5)
 parser.add_argument('--debug', type=bool, default=False)
+parser.add_argument('--gpus', type=str, default="0,1,2,3")
 args = parser.parse_args()
 
 for arg in vars(args):
     print(arg, ":",  getattr(args, arg))
 
 con = config.Config(args)
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
 seed = args.seed
 torch.manual_seed(seed)
