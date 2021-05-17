@@ -111,7 +111,7 @@ class Framework(object):
 
                 data = train_data_prefetcher.next()
 
-            if (epoch + 1) % self.config.test_epoch == 0 and epoch > 2:
+            if (epoch + 1) % self.config.test_epoch == 0 and epoch > 10:
                 # start testing
                 eval_start_time = time.time()
                 model.eval()

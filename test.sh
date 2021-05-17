@@ -8,10 +8,10 @@ nohup python -u -m test --bert_dir bert-base-cased \
             --train_prefix train_triples \
             --dev_prefix dev_triples \
             --test_prefix test_triples \
-            --test_model_name QAre_DATASET_NYT_LR_1e-05_BS_8_0512.pickle \
+            --test_model_name QAre_DATASET_NYT_LR_1e-05_BS_8_0512_epoch_17_f1_0.8782.pickle \
             --max_len 150 \
             --rel_num 24 \
             --period 50 \
             --seed 12 \
-            --gpus 0,1,2,3 \
-            > nyt_088_test_0512.log 2>&1 &
+            --gpus 4,5,6,7 \
+            > nyt_087_test_0512.log 2>&1 &

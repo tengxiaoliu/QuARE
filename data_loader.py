@@ -30,7 +30,7 @@ QA_BERT_MAX_LEN = 512
 #     return tokens + s
 
 
-def get_context_question(text, tokens, sub_text, rel_text, config, template=False):
+def get_context_question(text, tokens, sub_text, rel_text, config, template=True):
     """
     combine context, question, and tokenize
     :return: context + question tokens, within BERT_MAX_LEN

@@ -7,7 +7,7 @@ class QAre(nn.Module):
     def __init__(self, config):
         super(QAre, self).__init__()
         self.config = config
-        self.bert_dim = 768
+        self.bert_dim = 768  # bert-large 1024
         self.bert = BertModel.from_pretrained(self.config.bert_dir)
         self.num_labels = config.num_labels
 

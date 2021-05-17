@@ -29,6 +29,7 @@ parser.add_argument('--num_labels', type=int, default=3)  # BEO
 parser.add_argument('--period', type=int, default=50, help='print loss per PERIOD global steps')
 parser.add_argument('--seed', type=int, default=71)
 parser.add_argument('--theta', type=float, default=0.5)
+parser.add_argument('--neg_samp', type=int, default=5, help='ratio of negative sampling')
 parser.add_argument('--debug', type=bool, default=False)
 parser.add_argument('--gpus', type=str, default="0,1,2,3")
 args = parser.parse_args()
