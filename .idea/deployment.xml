@@ -9,6 +9,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="ubuntu@tengxiao-tokyo-g4-2">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/ubuntu/pycharm_proj/qare" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="ubuntu@tengxiao-tokyo-qare">
         <serverdata>
           <mappings>

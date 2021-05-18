@@ -1,0 +1,6 @@
+torch
+tensorflow-gpu==2.4.1
+keras-bert==0.86.0
+transformers
+tqdm
+sentencepiece

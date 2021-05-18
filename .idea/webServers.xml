@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="923695f6-41f8-4a39-8bac-73ac1df3db76" name="ubuntu@tengxiao-tokyo-g4-2" url="http://54.64.63.112">
+        <fileTransfer accessType="SFTP" host="54.64.63.112" port="22" sshConfigId="65e2e4db-eda0-4ffc-a189-346a85f85343" sshConfig="ubuntu@tengxiao-g4-2" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

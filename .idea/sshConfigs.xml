@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="54.64.63.112" id="65e2e4db-eda0-4ffc-a189-346a85f85343" keyPath="$PROJECT_DIR$/../../tengxiao-tokyo.pem" port="22" customName="ubuntu@tengxiao-g4-2" nameFormat="CUSTOM" username="ubuntu">
+        <option name="customName" value="ubuntu@tengxiao-g4-2" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>
